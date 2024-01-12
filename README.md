@@ -46,6 +46,7 @@ const job = (taskId, cb) => {
 
 // Create a queue with a concurrency limit of 3
 const queue = new Queue(3)
+  .process(job)
   .done((err, res) => {
     if (err) console.error(err);
     else console.log(res);
@@ -61,7 +62,7 @@ const queue = new Queue(3)
   });
 
 // Add tasks to the queue
-for (let i = 0; i < 11; i++) {
+for (let i = 0; i < 10; i++) {
   queue.add(i);
 }
 ```
