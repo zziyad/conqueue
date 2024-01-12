@@ -1,6 +1,6 @@
 {
   "name": "conqueue",
-  "version": "1.1.2",
+  "version": "2.0.0",
   "description": "Multifunctional asynchronous concurrent queue",
   "main": "queue.js",
   "types": "queue.d.ts",
@@ -42,7 +42,8 @@
   },
   "homepage": "https://github.com/timursevimli/conqueue#readme",
   "scripts": {
-    "test": "npm run lint && npm run types && node test/unit.js",
+    "test": "npm run lint && npm run types && npm run test:tap",
+    "test:tap": "tap test/unit.js --no-cov",
     "types": "tsc -p tsconfig.json",
     "lint": "eslint . && prettier --check \"**/*.js\" \"**/*.json\" \"**/*.md\" \"**/.*rc\" \"**/*.ts\"",
     "fmt": "prettier --write \"**/*.js\" \"**/*.json\" \"**/*.md\" \"**/.*rc\" \"**/*.ts\""
@@ -53,6 +54,7 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-prettier": "^5.1.2",
     "prettier": "^3.1.1",
+    "tap": "^16.1.0",
     "typescript": "^5.3.3"
   }
 }

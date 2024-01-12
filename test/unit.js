@@ -1,194 +1,320 @@
 'use strict';
 
-const test = require('node:test');
-const assert = require('node:assert');
+const { test, plan } = require('tap');
 const Queue = require('../queue.js');
 
-test('Done handling', () => {
-  const queue = new Queue(1);
+plan(13);
+
+test('Done handling', (t) => {
   let doneCalled = false;
 
-  queue.process((item, callback) => void callback(null, item));
-  queue.done((err, result) => {
-    assert.strictEqual(err, null);
-    assert.strictEqual(result.res, 'test');
-    doneCalled = true;
-  });
-
-  queue.add('test');
-
-  setTimeout(() => {
-    assert.strictEqual(doneCalled, true);
-  }, 0);
-});
-
-test('Success handling', () => {
-  const queue = new Queue(1);
-  let successCalled = false;
-
-  queue.process((item, callback) => void callback(null, item));
-  queue.success((result) => {
-    assert.strictEqual(result.res, 'test');
-    successCalled = true;
-  });
-
-  queue.add('test');
-
-  setTimeout(() => {
-    assert.strictEqual(successCalled, true);
-  }, 0);
-});
-
-test('Error handling', () => {
-  const queue = new Queue(1);
-  let failureCalled = false;
-
-  queue.process((_, callback) => void callback(new Error('Task failed')));
-  queue.failure((err) => {
-    assert.strictEqual(err.message, 'Task failed');
-    failureCalled = true;
-  });
-
-  queue.add('test');
-
-  setTimeout(() => {
-    assert.strictEqual(failureCalled, true);
-  }, 0);
-});
-
-test('Timeout handling', () => {
-  let onTimeoutCalled = false;
-  let failureCalled = false;
   const queue = new Queue(1)
-    .timeout(50, (err) => {
-      onTimeoutCalled = true;
-      assert.strictEqual(err.message, 'Process timed out!');
+    .process((item, callback) => {
+      callback(null, item);
     })
-    .process((item, callback) => void setTimeout(callback, 100, null, item))
-    .failure((err) => {
-      failureCalled = true;
-      assert.strictEqual(err.message, 'Process timed out!');
-    });
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.equal(res, 'test');
 
-  queue.add('test');
-
-  setTimeout(() => {
-    assert.strictEqual(failureCalled, true);
-    assert.strictEqual(onTimeoutCalled, true);
-  }, 150);
-});
-
-test('Wait handling', (t, done) => {
-  let failureCalled = false;
-  const queue = new Queue(1)
-    .wait(50)
-    .process((item, callback) => void setTimeout(callback, 100, null, item))
-    .failure((err) => {
-      failureCalled = true;
-      assert.strictEqual(err.message, 'Waiting timed out');
-    });
-
-  queue.add('test');
-
-  assert.strictEqual(failureCalled, false);
-
-  queue.add('test');
-
-  setTimeout(() => {
-    assert.strictEqual(failureCalled, true);
-    done();
-  }, 150);
-});
-
-test('Pause handling', () => {
-  let doneCalled = false;
-  const queue = new Queue(1)
-    .pause()
-    .process((item, callback) => void callback(null, item))
-    .done(() => void (doneCalled = true));
-
-  assert.strictEqual(doneCalled, false);
-
-  queue.add('test');
-
-  assert.strictEqual(doneCalled, false);
-});
-
-test('Resume handling', () => {
-  let doneCalled = false;
-  const queue = new Queue(1)
-    .pause()
-    .process((item, callback) => void callback(null, item))
-    .done(() => void (doneCalled = true));
-
-  assert.strictEqual(doneCalled, false);
-
-  queue.add('test');
-
-  assert.strictEqual(doneCalled, false);
-
-  queue.resume();
-
-  assert.strictEqual(doneCalled, true);
-});
-
-test('Promise mode', () => {
-  let doneCalled = false;
-  const job = (item) => new Promise((resolve) => void resolve(item));
-  const queue = new Queue(1)
-    .process(job)
-    .promise()
-    .done((err, result) => {
-      assert.strictEqual(err, null);
-      assert.strictEqual(result.res, 'test');
       doneCalled = true;
     });
 
+  t.plan(3);
+
   queue.add('test');
 
   setTimeout(() => {
-    assert.strictEqual(doneCalled, true);
+    t.equal(doneCalled, true);
   }, 0);
 });
 
-test('Drain handling', () => {
-  let drainCalled = false;
+test('Success handling', (t) => {
+  let successCalled = false;
+
   const queue = new Queue(1)
-    .process((item, callback) => void callback(null, item))
-    .drain(() => void (drainCalled = true));
-
-  queue.add('test');
-
-  setTimeout(() => {
-    assert.strictEqual(drainCalled, true);
-  }, 0);
-});
-
-test('Concurrency handling', (t, done) => {
-  const channels = 5;
-  const queue = new Queue(channels)
-    .process((item, callback) => void setTimeout(callback, 0, null, item))
-    .done(() => {
-      const channelsExceeded = queue.concurrency > channels;
-      assert.strictEqual(channelsExceeded, false);
+    .process((item, callback) => {
+      callback(null, item);
     })
-    .drain(done);
+    .success(({ res }) => {
+      t.equal(res, 'test');
 
-  for (let i = 0; i < 50; i++) queue.add(`test${i}`);
-});
-
-test('Queue size handling', (t, done) => {
-  const size = 10;
-  const queue = new Queue(1, size)
-    .process((item, callback) => void setTimeout(callback, 100, null, item))
-    .drain(() => {
-      assert.strictEqual(queue.waiting.length, 0);
-      done();
+      successCalled = true;
     });
 
-  assert.strictEqual(queue.size, size);
+  t.plan(2);
 
-  for (let i = 0; i < 20; i++) queue.add(`test${i}`);
+  queue.add('test');
 
-  assert.strictEqual(queue.waiting.length, size);
+  setTimeout(() => {
+    t.equal(successCalled, true);
+  }, 0);
+});
+
+test('Error handling', (t) => {
+  let failureCalled = false;
+
+  const queue = new Queue(1)
+    .process((item, callback) => {
+      callback(new Error('Task failed'), item);
+    })
+    .failure((err) => {
+      t.equal(err.message, 'Task failed');
+
+      failureCalled = true;
+    });
+
+  t.plan(2);
+
+  queue.add('test');
+
+  setTimeout(() => {
+    t.equal(failureCalled, true);
+  }, 0);
+});
+
+test('Timeout handling', (t) => {
+  let onTimeoutCalled = false;
+  let failureCalled = false;
+
+  const queue = new Queue(1)
+    .timeout(50, (err) => {
+      onTimeoutCalled = true;
+
+      t.equal(err.message, 'Process timed out!');
+    })
+    .process((item, callback) => {
+      setTimeout(callback, 100, null, item);
+    })
+    .failure((err) => {
+      failureCalled = true;
+
+      t.equal(err.message, 'Process timed out!');
+    });
+
+  t.plan(4);
+
+  queue.add('test');
+
+  setTimeout(() => {
+    t.equal(failureCalled, true);
+    t.equal(onTimeoutCalled, true);
+  }, 150);
+});
+
+test('Wait handling', (t) => {
+  let failureCalled = false;
+
+  const queue = new Queue(1)
+    .wait(50)
+    .pause()
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .failure((err) => {
+      failureCalled = true;
+
+      t.equal(err.message, 'Waiting timed out');
+    });
+
+  t.plan(3);
+
+  queue.add('test');
+
+  setTimeout(() => {
+    t.equal(failureCalled, false);
+
+    queue.resume();
+
+    t.equal(failureCalled, true);
+  }, 100);
+});
+
+test('Pause handling', (t) => {
+  let doneCalled = false;
+
+  const queue = new Queue(1)
+    .pause()
+    .process((item, callback) => {
+      callback(null, item);
+    })
+    .done(() => {
+      doneCalled = true;
+    });
+
+  t.plan(2);
+
+  t.equal(doneCalled, false);
+
+  queue.add('test');
+
+  t.equal(doneCalled, false);
+});
+
+test('Resume handling', (t) => {
+  let doneCalled = false;
+
+  const queue = new Queue(1)
+    .pause()
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .done(() => {
+      doneCalled = true;
+    });
+
+  t.plan(3);
+
+  t.equal(doneCalled, false);
+
+  queue.add('test');
+
+  t.equal(doneCalled, false);
+
+  queue.resume();
+
+  setTimeout(() => {
+    t.equal(doneCalled, true);
+  }, 0);
+});
+
+test('Drain handling', (t) => {
+  let drainCalled = false;
+
+  const queue = new Queue(1)
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .drain(() => {
+      drainCalled = true;
+    });
+
+  t.plan(1);
+
+  queue.add('test');
+
+  setTimeout(() => {
+    t.equal(drainCalled, true);
+  }, 0);
+});
+
+test('Should task handling: async', (t) => {
+  const items = new Array(100).fill('item').map((e, i) => e + i);
+  const results = [];
+  const job = (item) => Promise.resolve(item);
+
+  const queue = new Queue(1)
+    .process(job)
+    .async()
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+      results.push(res);
+    })
+    .drain(() => {
+      t.equal(items.length, results.length);
+    });
+
+  t.plan(2 * items.length + 1);
+
+  for (const item of items) {
+    queue.add(item);
+  }
+});
+
+test('Should task handling: callback', (t) => {
+  const items = new Array(100).fill('item').map((e, i) => e + i);
+  const results = [];
+  const job = (item, cb) => {
+    setTimeout(() => {
+      cb(null, item);
+    }, 0);
+  };
+
+  const queue = new Queue(1)
+    .process(job)
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+      results.push(res);
+    })
+    .drain(() => {
+      t.equal(items.length, results.length);
+    });
+
+  t.plan(2 * items.length + 1);
+
+  for (const item of items) {
+    queue.add(item);
+  }
+});
+
+test('Should task handling: promise', (t) => {
+  const items = new Array(100).fill('item').map((e, i) => e + i);
+  const results = [];
+
+  const queue = new Queue(1)
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+      results.push(res);
+    })
+    .drain(() => {
+      t.equal(items.length, results.length);
+    });
+
+  t.plan(2 * items.length + 1);
+
+  for (const item of items) {
+    queue.add(() => Promise.resolve(item));
+  }
+});
+
+test('Concurrency handling', (t) => {
+  const taskCount = 50;
+  const channels = 5;
+
+  const queue = new Queue(channels)
+    .process((item, callback) => {
+      setTimeout(callback, 0, null, item);
+    })
+    .done(() => {
+      const channelsExceeded = queue.concurrency > channels;
+      t.equal(channelsExceeded, false);
+    });
+
+  t.plan(taskCount + 1);
+
+  for (let i = 0; i <= taskCount; i++) {
+    queue.add(`test${i}`);
+  }
+});
+
+test('Queue size handling', (t) => {
+  const size = 10;
+
+  const queue = new Queue(1, size)
+    .process((item, callback) => {
+      setTimeout(callback, 100, null, item);
+    })
+    .drain(() => {
+      t.equal(queue.waiting.length, 0);
+      t.equal(queue.size, size);
+      t.equal(queue.count, 0);
+    });
+
+  t.plan(5);
+
+  t.equal(queue.size, size);
+
+  for (let i = 0; i < 20; i++) {
+    queue.add(`test${i}`);
+  }
+
+  t.equal(queue.waiting.length, size);
 });
