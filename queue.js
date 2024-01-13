@@ -102,7 +102,7 @@ class Queue {
       if (onFailure) onFailure(err, res);
     } else if (onSuccess) onSuccess(res);
     if (onDone) onDone(err, res);
-    if (this.destination) this.destination.add(res);
+    if (this.destination) this.destination.add(res.res);
     if (!onDrain) return;
     if (!this.roundRobinMode) {
       if (this.count === 0 && this.waiting.length === 0) onDrain();
@@ -167,7 +167,7 @@ class Queue {
       throw new Error(msg);
     }
     this.destination = dest;
-    return { pipe: dest.pipe };
+    return { pipe: dest.pipe.bind(dest) };
   }
 
   timeout(msec = 1, onTimeout = null) {
