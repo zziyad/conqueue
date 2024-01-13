@@ -3,7 +3,9 @@
 const { test, plan } = require('tap');
 const Queue = require('../queue.js');
 
-plan(16);
+plan(17);
+
+const items = new Array(10).fill('test').map((e, i) => e + i);
 
 test('Done handling', (t) => {
   let doneCalled = false;
@@ -218,7 +220,6 @@ test('Drain handling', (t) => {
 });
 
 test('Should task handling: async', (t) => {
-  const items = new Array(100).fill('item').map((e, i) => e + i);
   const results = [];
 
   const queue = new Queue(1)
@@ -248,7 +249,6 @@ test('Should task handling: async', (t) => {
 });
 
 test('Should task handling: callback', (t) => {
-  const items = new Array(100).fill('item').map((e, i) => e + i);
   const results = [];
 
   const queue = new Queue(1)
@@ -274,7 +274,6 @@ test('Should task handling: callback', (t) => {
 });
 
 test('Should task handling: promise', (t) => {
-  const items = new Array(100).fill('item').map((e, i) => e + i);
   const results = [];
 
   const queue = new Queue(1)
@@ -302,7 +301,6 @@ test('Should task handling: promise', (t) => {
 });
 
 test('Should task handling: multiple', (t) => {
-  const items = new Array(100).fill('item').map((e, i) => e + i);
   const results = [];
 
   const queue = new Queue(1)
@@ -396,8 +394,6 @@ test('Should add task without process', (t) => {
 });
 
 test('Queue pipe handling', (t) => {
-  const items = new Array(100).fill('item').map((e, i) => e + i);
-
   const dest1 = new Queue(1)
     .process((item, callback) => {
       setTimeout(() => {
@@ -438,4 +434,27 @@ test('Queue pipe handling', (t) => {
   for (const item of items) {
     queue.add(item);
   }
+});
+
+test('Should queue clear', (t) => {
+  const queue = new Queue(1).pause();
+
+  const dest = new Queue(1);
+
+  queue.pipe(dest);
+
+  t.plan(5);
+
+  queue.add('test1');
+  queue.add('test2');
+  queue.add('test3');
+
+  t.equal(queue.waiting.length, 3);
+  t.equal(queue.destination, dest);
+
+  queue.clear();
+
+  t.equal(queue.waiting.length, 0);
+  t.equal(queue.count, 0);
+  t.equal(queue.destination, null);
 });
