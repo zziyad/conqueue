@@ -3,7 +3,7 @@
 const { test, plan } = require('tap');
 const Queue = require('../queue.js');
 
-plan(13);
+plan(16);
 
 test('Done handling', (t) => {
   let doneCalled = false;
@@ -301,6 +301,41 @@ test('Should task handling: promise', (t) => {
   }
 });
 
+test('Should task handling: multiple', (t) => {
+  const items = new Array(100).fill('item').map((e, i) => e + i);
+  const results = [];
+
+  const queue = new Queue(1)
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+
+      results.push(res);
+    })
+    .drain(() => {
+      t.equal(items.length * 2, results.length);
+    });
+
+  t.plan(4 * items.length + 1);
+
+  for (const item of items) {
+    queue.add(item);
+    queue.add(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(item);
+          }, 0);
+        }),
+    );
+  }
+});
+
 test('Concurrency handling', (t) => {
   const taskCount = 50;
   const channels = 5;
@@ -343,4 +378,64 @@ test('Queue size handling', (t) => {
   }
 
   t.equal(queue.waiting.length, size);
+});
+
+test('Should add task without process', (t) => {
+  const queue = new Queue(1).done(() => {
+    t.fail('Never should this line');
+  });
+
+  t.plan(1);
+
+  try {
+    queue.add('test');
+    t.fail('Never should this line');
+  } catch (err) {
+    t.equal(err.message, 'Process is not defined');
+  }
+});
+
+test('Queue pipe handling', (t) => {
+  const items = new Array(100).fill('item').map((e, i) => e + i);
+
+  const dest1 = new Queue(1)
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+    });
+
+  const dest2 = new Queue(1)
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+    });
+
+  const queue = new Queue(1)
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .done((err, { res }) => {
+      t.equal(err, null);
+      t.ok(items.includes(res));
+    });
+
+  t.plan(6 * items.length);
+
+  queue.pipe(dest1).pipe(dest2);
+
+  for (const item of items) {
+    queue.add(item);
+  }
 });
