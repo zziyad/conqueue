@@ -218,7 +218,7 @@ class Queue {
   clear() {
     this.count = 0;
     this.waiting = [];
-    this.destinations = [];
+    this.destination = null;
     return this;
   }
 
