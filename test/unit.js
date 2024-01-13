@@ -10,7 +10,9 @@ test('Done handling', (t) => {
 
   const queue = new Queue(1)
     .process((item, callback) => {
-      callback(null, item);
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
     })
     .done((err, { res }) => {
       t.equal(err, null);
@@ -33,7 +35,9 @@ test('Success handling', (t) => {
 
   const queue = new Queue(1)
     .process((item, callback) => {
-      callback(null, item);
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
     })
     .success(({ res }) => {
       t.equal(res, 'test');
@@ -55,7 +59,9 @@ test('Error handling', (t) => {
 
   const queue = new Queue(1)
     .process((item, callback) => {
-      callback(new Error('Task failed'), item);
+      setTimeout(() => {
+        callback(new Error('Task failed'), item);
+      }, 0);
     })
     .failure((err) => {
       t.equal(err.message, 'Task failed');
@@ -75,20 +81,24 @@ test('Error handling', (t) => {
 test('Timeout handling', (t) => {
   let onTimeoutCalled = false;
   let failureCalled = false;
+  let timer = null;
 
   const queue = new Queue(1)
-    .timeout(50, (err) => {
-      onTimeoutCalled = true;
-
-      t.equal(err.message, 'Process timed out!');
-    })
     .process((item, callback) => {
-      setTimeout(callback, 100, null, item);
+      timer = setTimeout(() => {
+        t.fail('Never should this line');
+        callback(null, item);
+      }, 100);
+    })
+    .timeout(50, (err) => {
+      t.equal(err.message, 'Process timed out!');
+
+      onTimeoutCalled = true;
     })
     .failure((err) => {
-      failureCalled = true;
-
       t.equal(err.message, 'Process timed out!');
+
+      failureCalled = true;
     });
 
   t.plan(4);
@@ -98,24 +108,26 @@ test('Timeout handling', (t) => {
   setTimeout(() => {
     t.equal(failureCalled, true);
     t.equal(onTimeoutCalled, true);
-  }, 150);
+    clearTimeout(timer);
+  }, 50);
 });
 
 test('Wait handling', (t) => {
   let failureCalled = false;
 
   const queue = new Queue(1)
-    .wait(50)
+    .wait(25)
     .pause()
     .process((item, callback) => {
       setTimeout(() => {
+        t.fail('Never should this line');
         callback(null, item);
       }, 0);
     })
     .failure((err) => {
-      failureCalled = true;
-
       t.equal(err.message, 'Waiting timed out');
+
+      failureCalled = true;
     });
 
   t.plan(3);
@@ -128,7 +140,7 @@ test('Wait handling', (t) => {
     queue.resume();
 
     t.equal(failureCalled, true);
-  }, 100);
+  }, 50);
 });
 
 test('Pause handling', (t) => {
@@ -137,7 +149,9 @@ test('Pause handling', (t) => {
   const queue = new Queue(1)
     .pause()
     .process((item, callback) => {
-      callback(null, item);
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
     })
     .done(() => {
       doneCalled = true;
@@ -206,10 +220,16 @@ test('Drain handling', (t) => {
 test('Should task handling: async', (t) => {
   const items = new Array(100).fill('item').map((e, i) => e + i);
   const results = [];
-  const job = (item) => Promise.resolve(item);
 
   const queue = new Queue(1)
-    .process(job)
+    .process(
+      (item) =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(item);
+          }, 0);
+        }),
+    )
     .async()
     .done((err, { res }) => {
       t.equal(err, null);
@@ -230,14 +250,13 @@ test('Should task handling: async', (t) => {
 test('Should task handling: callback', (t) => {
   const items = new Array(100).fill('item').map((e, i) => e + i);
   const results = [];
-  const job = (item, cb) => {
-    setTimeout(() => {
-      cb(null, item);
-    }, 0);
-  };
 
   const queue = new Queue(1)
-    .process(job)
+    .process((item, cb) => {
+      setTimeout(() => {
+        cb(null, item);
+      }, 0);
+    })
     .done((err, { res }) => {
       t.equal(err, null);
       t.ok(items.includes(res));
@@ -271,7 +290,14 @@ test('Should task handling: promise', (t) => {
   t.plan(2 * items.length + 1);
 
   for (const item of items) {
-    queue.add(() => Promise.resolve(item));
+    queue.add(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(item);
+          }, 0);
+        }),
+    );
   }
 });
 
