@@ -3,7 +3,7 @@
 const { test, plan } = require('tap');
 const Queue = require('../queue.js');
 
-plan(17);
+plan(20);
 
 const items = new Array(10).fill('test').map((e, i) => e + i);
 
@@ -457,4 +457,86 @@ test('Should queue clear', (t) => {
   t.equal(queue.waiting.length, 0);
   t.equal(queue.count, 0);
   t.equal(queue.destination, null);
+});
+
+test('Fifo', (t) => {
+  let i = 0;
+
+  const queue = new Queue(1)
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .success(({ res }) => {
+      t.equal(items[i++], res);
+    });
+
+  t.plan(items.length);
+
+  for (const item of items) {
+    queue.add(item);
+  }
+});
+
+test('Lifo', (t) => {
+  let i = items.length - 1;
+
+  const queue = new Queue(1)
+    .lifo()
+    .pause()
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .success(({ res }) => {
+      t.equal(items[i--], res);
+    });
+
+  t.plan(items.length);
+
+  for (const item of items) {
+    queue.add(item);
+  }
+
+  queue.resume();
+});
+
+test('Priority', (t) => {
+  const cases = [
+    'test0',
+    'test1',
+    'test2',
+    'test9',
+    'test8',
+    'test7',
+    'test6',
+    'test5',
+    'test4',
+    'test3',
+  ];
+  let i = 0;
+
+  const queue = new Queue(3)
+    .priority()
+    .process((item, callback) => {
+      setTimeout(() => {
+        callback(null, item);
+      }, 0);
+    })
+    .success(({ res }) => {
+      t.equal(res, cases[i++]);
+    });
+
+  t.plan(cases.length + 1);
+
+  t.equal(cases.length, cases.length);
+
+  const max = cases.length;
+  for (let i = 0; i < max; i++) {
+    const item = cases[i];
+    const priority = max - i;
+    queue.add(item, { priority });
+  }
 });
